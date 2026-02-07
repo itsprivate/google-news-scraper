@@ -12,13 +12,11 @@ import * as cheerio from 'cheerio';
 import getLogger from './getLogger';
 import getTitle from './getTitle';
 import getArticleType from './getArticleType';
-import getPrettyUrl from './getPrettyUrl';
 import buildQueryString from './buildQueryString';
 import getArticleContent from './getArticleContent';
 const googleNewsScraper = (userConfig) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     const config = Object.assign({
-        prettyURLs: true,
         getArticleContent: false,
         puppeteerArgs: [],
         puppeteerHeadlessMode: true,
@@ -142,15 +140,6 @@ const googleNewsScraper = (userConfig) => __awaiter(void 0, void 0, void 0, func
             };
             results.push(mainArticle);
         });
-    }
-    if (config.prettyURLs) {
-        results = yield Promise.all(results.map(article => {
-            const url = getPrettyUrl(article.link, logger);
-            if (url) {
-                article.link = url;
-            }
-            return article;
-        }));
     }
     if (config.getArticleContent) {
         const filterWords = config.filterWords || [];

@@ -7,7 +7,6 @@ const articles = await googleNewsScraper({
     gl: "US",
     ceid: "US:en"
   },
-  prettyURLs: true,
   limit: 10,
   logLevel: "info"
 });

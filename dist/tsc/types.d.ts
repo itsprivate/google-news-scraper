@@ -11,7 +11,6 @@ export type SearchParams = {
     searchTerm?: string;
 };
 export type GNSUserConfig = SearchParams & {
-    prettyURLs?: boolean;
     timeframe?: Timeframe;
     getArticleContent?: boolean;
     puppeteerArgs?: string[];
@@ -22,7 +21,6 @@ export type GNSUserConfig = SearchParams & {
     limit?: number;
 };
 export type GNSConfig = SearchParams & {
-    prettyURLs: boolean;
     timeframe: Timeframe;
     getArticleContent: boolean;
     puppeteerArgs: string[];

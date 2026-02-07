@@ -18,7 +18,8 @@ const getPrettyUrl = (uglyUrl: string, logger: winston.Logger): string | null =>
       });
     });
     const uniqueUrls = [...new Set(urls)];
-    const finalUrl = uniqueUrls.length ? uniqueUrls[0] : uglyUrl;
+    if (!uniqueUrls.length) return null;
+    const finalUrl = uniqueUrls[0];
     logger.info(finalUrl);
     return finalUrl;
   } catch (error) {

@@ -4,7 +4,6 @@ import * as cheerio from 'cheerio';
 import getLogger from './getLogger';
 import getTitle from './getTitle';
 import getArticleType from './getArticleType';
-import getPrettyUrl from './getPrettyUrl';
 import buildQueryString from './buildQueryString';
 import getArticleContent from './getArticleContent';
 import { 
@@ -18,7 +17,6 @@ import {
 const googleNewsScraper = async (userConfig: GNSUserConfig) => {
   const config: GNSConfig = {
     ...{
-      prettyURLs: true,
       getArticleContent: false,
       puppeteerArgs: [],
       puppeteerHeadlessMode: true,
@@ -154,16 +152,6 @@ const googleNewsScraper = async (userConfig: GNSUserConfig) => {
       }
       results.push(mainArticle)
     });
-  }
-
-  if (config.prettyURLs) {
-    results = await Promise.all(results.map(article => {
-      const url = getPrettyUrl(article.link, logger);
-      if (url) {
-        article.link = url;
-      }
-      return article;
-    }));
   }
 
   if (config.getArticleContent) {
