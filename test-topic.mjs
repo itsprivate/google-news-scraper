@@ -14,6 +14,7 @@ const articles = await googleNewsScraper({
 
 console.log(`\nFound ${articles.length} articles:\n`);
 articles.forEach((article, i) => {
+  console.log('article',article)
   console.log(`[${i + 1}] ${article.title}`);
   console.log(`    Source: ${article.source}`);
   console.log(`    Link:   ${article.link}`);
