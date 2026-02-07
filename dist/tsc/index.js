@@ -79,32 +79,70 @@ const googleNewsScraper = (userConfig) => __awaiter(void 0, void 0, void 0, func
     catch (err) { }
     const content = yield page.content();
     const $ = cheerio.load(content);
-    const articles = $('article');
     let results = [];
-    let i = 0;
-    const urlChecklist = [];
-    $(articles).each(function () {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-        const link = ((_c = (_b = (_a = $(this)) === null || _a === void 0 ? void 0 : _a.find('a[href^="./article"]')) === null || _b === void 0 ? void 0 : _b.attr('href')) === null || _c === void 0 ? void 0 : _c.replace('./', 'https://news.google.com/')) || ((_f = (_e = (_d = $(this)) === null || _d === void 0 ? void 0 : _d.find('a[href^="./read"]')) === null || _e === void 0 ? void 0 : _e.attr('href')) === null || _f === void 0 ? void 0 : _f.replace('./', 'https://news.google.com/')) || "";
-        link && urlChecklist.push(link);
-        const srcset = (_g = $(this).find('figure').find('img').attr('srcset')) === null || _g === void 0 ? void 0 : _g.split(' ');
-        const image = srcset && srcset.length
-            ? srcset[srcset.length - 2]
-            : $(this).find('figure').find('img').attr('src');
-        const articleType = getArticleType($(this));
-        const title = getTitle($(this), articleType);
-        const mainArticle = {
-            title,
-            "link": link,
-            "image": (image === null || image === void 0 ? void 0 : image.startsWith("/")) ? `https://news.google.com${image}` : image || "",
-            "source": $(this).find('div[data-n-tid]').text() || "",
-            "datetime": ((_j = new Date(((_h = $(this).find('div:last-child time')) === null || _h === void 0 ? void 0 : _h.attr('datetime')) || "")) === null || _j === void 0 ? void 0 : _j.toISOString()) || "",
-            "time": $(this).find('div:last-child time').text() || "",
-            articleType
-        };
-        results.push(mainArticle);
-        i++;
+    // -- New structure: anchor on title links --
+    const titleLinks = $('a[href^="./read/"]').filter(function () {
+        return $(this).text().trim().length > 0;
     });
+    if (titleLinks.length > 0) {
+        // New Google News DOM (c-wiz components)
+        titleLinks.each(function () {
+            const titleEl = $(this);
+            const title = titleEl.text().trim();
+            const rawHref = titleEl.attr('href') || '';
+            const link = rawHref.startsWith('./')
+                ? rawHref.replace('./', 'https://news.google.com/')
+                : rawHref;
+            // Walk up to find container (ancestor with <time>)
+            let container = titleEl.parent();
+            for (let depth = 0; depth < 6; depth++) {
+                if (container.find('time[datetime]').length)
+                    break;
+                container = container.parent();
+            }
+            const source = container.find('div[data-n-tid]').filter(function () {
+                return !$(this).find('div[data-n-tid]').length; // leaf node only
+            }).first().text().trim();
+            const timeEl = container.find('time[datetime]').first();
+            const imgEl = container.find('img[src*="/api/attachments/"]').first();
+            const image = imgEl.attr('src')
+                || container.find('figure img').attr('src')
+                || '';
+            results.push({
+                title,
+                link,
+                image: image.startsWith('/') ? `https://news.google.com${image}` : image,
+                source,
+                datetime: new Date(timeEl.attr('datetime') || '').toISOString(),
+                time: timeEl.text().trim(),
+                articleType: 'topic',
+            });
+        });
+    }
+    else {
+        // Fallback: old structure with <article> tags
+        const articles = $('article');
+        $(articles).each(function () {
+            var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+            const link = ((_c = (_b = (_a = $(this)) === null || _a === void 0 ? void 0 : _a.find('a[href^="./article"]')) === null || _b === void 0 ? void 0 : _b.attr('href')) === null || _c === void 0 ? void 0 : _c.replace('./', 'https://news.google.com/')) || ((_f = (_e = (_d = $(this)) === null || _d === void 0 ? void 0 : _d.find('a[href^="./read"]')) === null || _e === void 0 ? void 0 : _e.attr('href')) === null || _f === void 0 ? void 0 : _f.replace('./', 'https://news.google.com/')) || "";
+            const srcset = (_g = $(this).find('figure').find('img').attr('srcset')) === null || _g === void 0 ? void 0 : _g.split(' ');
+            const image = srcset && srcset.length
+                ? srcset[srcset.length - 2]
+                : $(this).find('figure').find('img').attr('src');
+            const articleType = getArticleType($(this));
+            const title = getTitle($(this), articleType);
+            const mainArticle = {
+                title,
+                "link": link,
+                "image": (image === null || image === void 0 ? void 0 : image.startsWith("/")) ? `https://news.google.com${image}` : image || "",
+                "source": $(this).find('div[data-n-tid]').text() || "",
+                "datetime": ((_j = new Date(((_h = $(this).find('div:last-child time')) === null || _h === void 0 ? void 0 : _h.attr('datetime')) || "")) === null || _j === void 0 ? void 0 : _j.toISOString()) || "",
+                "time": $(this).find('div:last-child time').text() || "",
+                articleType
+            };
+            results.push(mainArticle);
+        });
+    }
     if (config.prettyURLs) {
         results = yield Promise.all(results.map(article => {
             const url = getPrettyUrl(article.link, logger);

@@ -88,33 +88,73 @@ const googleNewsScraper = async (userConfig: GNSUserConfig) => {
   const content = await page.content();
   const $ = cheerio.load(content);
 
-  const articles = $('article');
   let results: Articles = [];
-  let i = 0;
-  const urlChecklist = [];
 
-  $(articles).each(function() {
-    const link = $(this)?.find('a[href^="./article"]')?.attr('href')?.replace('./', 'https://news.google.com/') || $(this)?.find('a[href^="./read"]')?.attr('href')?.replace('./', 'https://news.google.com/') || ""
-    link && urlChecklist.push(link);
-    const srcset = $(this).find('figure').find('img').attr('srcset')?.split(' ');
-    const image = srcset && srcset.length
-      ? srcset[srcset.length - 2]
-      : $(this).find('figure').find('img').attr('src');
-    const articleType = getArticleType($(this));
-
-    const title = getTitle($(this), articleType);
-    const mainArticle: Article = {
-      title, 
-      "link": link, 
-      "image": image?.startsWith("/") ? `https://news.google.com${image}` : image || "",
-      "source": $(this).find('div[data-n-tid]').text() || "",
-      "datetime": new Date($(this).find('div:last-child time')?.attr('datetime') || "")?.toISOString() || "",
-      "time": $(this).find('div:last-child time').text() || "", 
-      articleType
-    }
-    results.push(mainArticle)
-    i++
+  // -- New structure: anchor on title links --
+  const titleLinks = $('a[href^="./read/"]').filter(function () {
+    return $(this).text().trim().length > 0;
   });
+
+  if (titleLinks.length > 0) {
+    // New Google News DOM (c-wiz components)
+    titleLinks.each(function () {
+      const titleEl = $(this);
+      const title = titleEl.text().trim();
+      const rawHref = titleEl.attr('href') || '';
+      const link = rawHref.startsWith('./')
+        ? rawHref.replace('./', 'https://news.google.com/')
+        : rawHref;
+
+      // Walk up to find container (ancestor with <time>)
+      let container = titleEl.parent();
+      for (let depth = 0; depth < 6; depth++) {
+        if (container.find('time[datetime]').length) break;
+        container = container.parent();
+      }
+
+      const source = container.find('div[data-n-tid]').filter(function () {
+        return !$(this).find('div[data-n-tid]').length; // leaf node only
+      }).first().text().trim();
+      const timeEl = container.find('time[datetime]').first();
+      const imgEl = container.find('img[src*="/api/attachments/"]').first();
+      const image = imgEl.attr('src')
+        || container.find('figure img').attr('src')
+        || '';
+
+      results.push({
+        title,
+        link,
+        image: image.startsWith('/') ? `https://news.google.com${image}` : image,
+        source,
+        datetime: new Date(timeEl.attr('datetime') || '').toISOString(),
+        time: timeEl.text().trim(),
+        articleType: 'topic',
+      });
+    });
+  } else {
+    // Fallback: old structure with <article> tags
+    const articles = $('article');
+    $(articles).each(function () {
+      const link = $(this)?.find('a[href^="./article"]')?.attr('href')?.replace('./', 'https://news.google.com/') || $(this)?.find('a[href^="./read"]')?.attr('href')?.replace('./', 'https://news.google.com/') || ""
+      const srcset = $(this).find('figure').find('img').attr('srcset')?.split(' ');
+      const image = srcset && srcset.length
+        ? srcset[srcset.length - 2]
+        : $(this).find('figure').find('img').attr('src');
+      const articleType = getArticleType($(this));
+
+      const title = getTitle($(this), articleType);
+      const mainArticle: Article = {
+        title,
+        "link": link,
+        "image": image?.startsWith("/") ? `https://news.google.com${image}` : image || "",
+        "source": $(this).find('div[data-n-tid]').text() || "",
+        "datetime": new Date($(this).find('div:last-child time')?.attr('datetime') || "")?.toISOString() || "",
+        "time": $(this).find('div:last-child time').text() || "",
+        articleType
+      }
+      results.push(mainArticle)
+    });
+  }
 
   if (config.prettyURLs) {
     results = await Promise.all(results.map(article => {
